@@ -68,11 +68,8 @@ class DuckDuckGoSearcher:
         errors: List[str] = []
         try:
             from ddgs import DDGS
-        except ImportError:
-            try:
-                from duckduckgo_search import DDGS
-            except ImportError as e:
-                return [], [f"DuckDuckGo search dependency is missing: {e}"]
+        except ImportError as e:
+            return [], [f"DuckDuckGo search dependency is missing. Run: pip install ddgs. Error: {e}"]
 
         query = query.strip()
         if not query:
