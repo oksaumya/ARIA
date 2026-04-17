@@ -6,7 +6,7 @@ GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 GROQ_MODEL = "llama-3.3-70b-versatile"
 
 
-def get_llm(temperature: float = 0.3, api_key: str = None) -> ChatOpenAI:
+def get_llm(temperature: float = 0.0, api_key: str = None) -> ChatOpenAI:
     """Returns a ChatOpenAI instance pointed at the Groq API (OpenAI-compatible)."""
     if api_key is None:
         try:
@@ -20,6 +20,7 @@ def get_llm(temperature: float = 0.3, api_key: str = None) -> ChatOpenAI:
         api_key=api_key,
         base_url=GROQ_BASE_URL,
         temperature=temperature,
+        max_tokens=4096,
         max_retries=3,
         request_timeout=60,
     )

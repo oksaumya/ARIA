@@ -13,6 +13,6 @@ urllib3
 langgraph>=0.2.0
 langchain>=0.3.0
 langchain-openai>=0.2.0
-duckduckgo-search>=6.0.0
+ddgs>=9.0.0
 beautifulsoup4>=4.12.0
 fpdf2>=2.7.0

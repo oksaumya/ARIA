@@ -39,9 +39,9 @@ api_key_input = st.sidebar.text_input(
     help="Free key at console.groq.com",
 )
 if api_key_input:
-    st.session_state["groq_api_key"] = api_key_input
+    st.session_state["GROQ_API_KEY"] = api_key_input
 
-api_key = st.session_state.get("groq_api_key", _auto_key)
+api_key = st.session_state.get("GROQ_API_KEY", _auto_key)
 
 # Settings
 st.sidebar.markdown("**Settings**")

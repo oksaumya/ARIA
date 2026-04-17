@@ -13,9 +13,9 @@ def answer_question(state: ResearchState, question: str, api_key: str = None) ->
 
     system = (
         "You are a research assistant answering follow-up questions about a completed research report. "
-        "Answer ONLY based on the information in the report and research synthesis provided. "
-        "If the answer is not found in the provided content, say: "
-        "'This question is not addressed in the current research. You may want to run a new search.'\n\n"
+        "Answer ONLY based on the information in the report and research synthesis provided in English. "
+        "Write everything in clear, natural English only. Do not output Chinese or any other language. "
+        "If the answer is not found in the provided content, say: Sorry. This question is not addressed in the current research. You may want to run a new search.\n\n"
         f"Research Report:\n{report_md}\n\n"
         f"Full Research Synthesis:\n{aggregated}"
     )

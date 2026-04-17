@@ -11,6 +11,34 @@ from src.agent.web_search import DuckDuckGoSearcher
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 http = urllib3.PoolManager(timeout=urllib3.Timeout(connect=3.0, read=5.0))
 
+ENGLISH_ONLY = (
+    "Write everything in clear, natural English only. "
+    "Do not output Chinese or any other language. "
+    "Do not use markdown fences unless explicitly requested. "
+    "Finish every sentence completely; never leave a sentence unfinished."
+)
+
+
+def _extract_json_object(text: str) -> dict:
+    """Best-effort JSON extraction for LLM responses."""
+    raw = text.strip()
+
+    if raw.startswith("```"):
+        parts = raw.split("```")
+        if len(parts) >= 2:
+            raw = parts[1].strip()
+            if raw.startswith("json"):
+                raw = raw[4:].strip()
+
+    try:
+        return json.loads(raw)
+    except Exception:
+        start = raw.find("{")
+        end = raw.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            return json.loads(raw[start:end + 1])
+        raise
+
 
 def _get_llm(state: ResearchState):
     from src.agent.llm import get_llm
@@ -24,9 +52,10 @@ def plan_research(state: ResearchState) -> dict:
     llm = _get_llm(state)
 
     system = (
-        "You are a research planning assistant. Given a research topic, generate 3 to 5 "
+        "You are a research planning assistant. Given a research topic, generate 3 to 5 meaningfull "
         "distinct search queries that cover different facets: overview, recent developments, "
         "applications, criticisms or limitations, and future directions. "
+        f"{ENGLISH_ONLY} "
         'Return ONLY a JSON object with key "queries" containing a list of strings. '
         "Example: {\"queries\": [\"query 1\", \"query 2\", \"query 3\"]}"
     )
@@ -36,7 +65,7 @@ def plan_research(state: ResearchState) -> dict:
             SystemMessage(content=system),
             HumanMessage(content=f"Research topic: {query}"),
         ])
-        data = json.loads(response.content)
+        data = _extract_json_object(response.content)
         queries = data.get("queries", [query])
         if not isinstance(queries, list) or not queries:
             queries = [query]
@@ -134,8 +163,9 @@ def source_summarizer(state: ResearchState) -> dict:
 
     summaries = []
     system = (
-        "You are a research assistant. Summarize the following source content in 3–5 sentences, "
+        "You are a research assistant. Summarize the following source content in 3–5 meaningfull sentences in English, "
         "focusing specifically on how it relates to the research query. "
+        f"{ENGLISH_ONLY} "
         "If the content is irrelevant to the query, respond with exactly: IRRELEVANT"
     )
 
@@ -181,7 +211,8 @@ def aggregator(state: ResearchState) -> dict:
         "You are a research synthesis expert. Given the following per-source summaries, "
         "write a unified synthesis that: identifies consensus findings, notes contradictions, "
         "highlights knowledge gaps, and directly addresses the research query. "
-        "Write 3–5 well-developed paragraphs. Be specific and evidence-based."
+        "Write 3-5 meaningfull well-developed paragraphs. Be specific and evidence-based. "
+        f"{ENGLISH_ONLY}"
     )
 
     try:
@@ -211,6 +242,7 @@ def quality_validator(state: ResearchState) -> dict:
         "- Coverage (0.0–0.4): Does it address all major aspects of the query?\n"
         "- Evidence (0.0–0.3): Are claims supported by source references?\n"
         "- Coherence (0.0–0.3): Is the narrative well-organized and logical?\n\n"
+        f"{ENGLISH_ONLY} "
         "Return ONLY a JSON object with keys: "
         '"score" (float, sum of dimensions), "feedback" (string), "missing_aspects" (list of strings). '
         'Example: {"score": 0.75, "feedback": "Good coverage but lacks recent data.", "missing_aspects": ["recent 2024 developments"]}'
@@ -221,7 +253,7 @@ def quality_validator(state: ResearchState) -> dict:
             SystemMessage(content=system),
             HumanMessage(content=f"Research query: {query}\n\nSynthesis:\n{aggregated}"),
         ])
-        data = json.loads(resp.content)
+        data = _extract_json_object(resp.content)
         score = float(data.get("score", 0.5))
         feedback = data.get("feedback", "")
         missing = data.get("missing_aspects", [])
@@ -255,11 +287,12 @@ def report_generator(state: ResearchState) -> dict:
         "You are an expert research report writer. Generate a comprehensive, structured research report "
         "based on the provided synthesis. Return ONLY a JSON object with these exact keys:\n"
         '- "title": string (descriptive report title)\n'
-        '- "abstract": string (2–3 sentence overview)\n'
+        '- "abstract": string (2–3 meaningfull sentence overview)\n'
         '- "key_findings": list of strings (5–8 specific, evidence-based bullet points)\n'
         '- "conclusion": string (1 well-developed paragraph)\n'
         '- "sources": list of {"title": string, "url": string} objects\n\n'
-        "Base the report strictly on the provided synthesis. Do not add information not present in the synthesis."
+        "Base the report strictly on the provided synthesis. Do not add information not present in the synthesis. "
+        f"{ENGLISH_ONLY}"
     )
 
     try:
@@ -272,14 +305,7 @@ def report_generator(state: ResearchState) -> dict:
             )),
         ])
 
-        raw = resp.content.strip()
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-            raw = raw.strip()
-
-        data = json.loads(raw)
+        data = _extract_json_object(resp.content)
         report = {
             "title": data.get("title", f"Research Report: {query}"),
             "abstract": data.get("abstract", ""),
@@ -288,10 +314,14 @@ def report_generator(state: ResearchState) -> dict:
             "sources": data.get("sources", sources_list),
         }
     except Exception as e:
+        sentences = [s.strip() for s in aggregated.replace("\n", " ").split(". ") if s.strip()]
+        key_findings = sentences[:6] if sentences else ([aggregated[:200]] if aggregated else [])
+        if key_findings and not key_findings[-1].endswith((".", "!", "?")):
+            key_findings[-1] = key_findings[-1].rstrip(".") + "."
         report = {
             "title": f"Research Report: {query}",
-            "abstract": aggregated[:300] + "..." if len(aggregated) > 300 else aggregated,
-            "key_findings": [aggregated[i:i+200] for i in range(0, min(len(aggregated), 1000), 200)],
+            "abstract": aggregated[:500] + "..." if len(aggregated) > 500 else aggregated,
+            "key_findings": key_findings,
             "conclusion": "Report generation encountered an error. The synthesis above represents the research findings.",
             "sources": sources_list,
         }

@@ -10,13 +10,28 @@ class DuckDuckGoSearcher:
 
     def search(self, query: str) -> List[SearchResult]:
         """Search DuckDuckGo with retry logic."""
-        from duckduckgo_search import DDGS
+        try:
+            from ddgs import DDGS
+        except ImportError:
+            from duckduckgo_search import DDGS
+
+        query = query.strip()
+        search_attempts = (
+            {"region": "us-en", "safesearch": "off", "backend": "html"},
+            {"region": "us-en", "safesearch": "off", "backend": "api"},
+        )
 
         for attempt in range(3):
             try:
-                results = []
                 with DDGS() as ddgs:
-                    for r in ddgs.text(query, max_results=self.max_results):
+                    search_kwargs = search_attempts[min(attempt, len(search_attempts) - 1)]
+                    results = []
+                    for r in ddgs.text(
+                        query,
+                        max_results=self.max_results,
+                        timelimit=None,
+                        **search_kwargs,
+                    ):
                         results.append(SearchResult(
                             url=r.get("href", ""),
                             title=r.get("title", ""),
