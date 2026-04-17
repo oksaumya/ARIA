@@ -109,8 +109,8 @@ def validate_api_key(api_key: str) -> tuple[bool, str | None]:
     except Exception as e:
         error_text = str(e)
         if _looks_like_invalid_api_key(error_text):
-            return False, "The Groq API key is invalid. Update the key in the sidebar and run again."
-        return False, f"Unable to contact the Groq API before starting research: {error_text}"
+            return False, "Invalid API key. Go to [console.groq.com](https://console.groq.com) to get your free API key, then paste it in the sidebar."
+        return False, f"Could not reach Groq API. Check your key at [console.groq.com](https://console.groq.com) or try again. Details: {error_text}"
 
 if _import_errors:
     st.error(
