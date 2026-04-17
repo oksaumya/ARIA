@@ -5,11 +5,29 @@ from src.nlp_pipeline import clean_text, extract_keywords_tfidf, perform_topic_m
 
 st.set_page_config(page_title="NLP Research Analysis System", layout="wide")
 
-st.title("NLP Research Analysis System)")
+st.title("NLP Research Analysis System")
 st.markdown("Analyze documents or search topics to extract themes, keywords, and structured summaries using traditional NLP.")
 
 st.sidebar.header("Input Section")
 input_method = st.sidebar.radio("Choose Input Method", ["Upload Document(s)", "Search Topic (Wikipedia)"])
+
+st.sidebar.markdown("---")
+st.sidebar.header("Analysis Settings")
+n_summary_sentences = st.sidebar.slider(
+    "Summary sentences",
+    min_value=3, max_value=15, value=7, step=1,
+    help="Number of sentences to include in the TextRank extractive summary.",
+)
+n_topics = st.sidebar.slider(
+    "LDA topic count",
+    min_value=2, max_value=8, value=4, step=1,
+    help="Number of latent topics to discover via Latent Dirichlet Allocation.",
+)
+n_topic_words = st.sidebar.slider(
+    "Words per topic",
+    min_value=3, max_value=10, value=6, step=1,
+    help="How many top keywords to display for each discovered topic.",
+)
 
 raw_text = ""
 source_info = ""
@@ -52,7 +70,7 @@ if raw_text:
         st.subheader("Extractive Summary")
         st.markdown("*Summary generated using TextRank algorithm scoring sentences.*")
         with st.spinner("Generating summary..."):
-            summary = generate_extractive_summary(cleaned_text, sentences_count=7)
+            summary = generate_extractive_summary(cleaned_text, sentences_count=n_summary_sentences)
             if summary:
                 st.info(summary)
             else:
@@ -74,7 +92,7 @@ if raw_text:
         st.subheader("Topic Clusters (LDA)")
         st.markdown("*Identified underlying topics using Latent Dirichlet Allocation (LDA).*")
         with st.spinner("Running Topic Modeling..."):
-            topics = perform_topic_modeling(cleaned_text, n_topics=4, n_words=6)
+            topics = perform_topic_modeling(cleaned_text, n_topics=n_topics, n_words=n_topic_words)
             if topics:
                 for idx, topic_words in enumerate(topics):
                     st.write(f"**Topic {idx + 1}:** {', '.join(topic_words)}")
