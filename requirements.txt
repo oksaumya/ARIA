@@ -1,0 +1,18 @@
+streamlit
+nltk
+spacy
+en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+scikit-learn
+pandas
+wikipedia
+sumy
+PyMuPDF
+python-docx
+matplotlib
+urllib3
+langgraph>=0.2.0
+langchain>=0.3.0
+langchain-openai>=0.2.0
+duckduckgo-search>=6.0.0
+beautifulsoup4>=4.12.0
+fpdf2>=2.7.0
