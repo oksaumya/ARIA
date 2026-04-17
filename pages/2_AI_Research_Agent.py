@@ -1,6 +1,7 @@
 import uuid
 import streamlit as st
 from datetime import datetime
+from langchain_core.messages import HumanMessage
 
 st.set_page_config(
     page_title="ARIA — AI Research Agent",
@@ -15,6 +16,7 @@ try:
     from src.agent.qa_agent import answer_question
     from src.agent.report import export_pdf
     from src.agent.memory import save_session, get_history
+    from src.agent.llm import get_llm
 except ImportError as e:
     _import_errors.append(str(e))
 
@@ -25,23 +27,35 @@ st.sidebar.caption("Autonomous Research Intelligence Assistant")
 st.sidebar.markdown("---")
 
 # API Key input — auto-load from secrets if available
-_auto_key = ""
+_secret_key = ""
 try:
-    _auto_key = st.secrets.get("GROQ_API_KEY", "")
+    _secret_key = st.secrets.get("GROQ_API_KEY", "")
 except Exception:
     pass
 
-api_key_input = st.sidebar.text_input(
-    "Groq API Key",
-    value=_auto_key,
-    type="password",
-    placeholder="gsk_...",
-    help="Free key at console.groq.com",
-)
-if api_key_input:
-    st.session_state["GROQ_API_KEY"] = api_key_input
+if _secret_key:
+    st.sidebar.text_input(
+        "Groq API Key",
+        value=_secret_key,
+        type="password",
+        disabled=True,
+        help="Loaded from `.streamlit/secrets.toml`.",
+    )
+    api_key = _secret_key
+else:
+    api_key_input = st.sidebar.text_input(
+        "Groq API Key",
+        value=st.session_state.get("GROQ_API_KEY", ""),
+        type="password",
+        placeholder="gsk_...",
+        help="Free key at console.groq.com",
+    )
+    if api_key_input:
+        st.session_state["GROQ_API_KEY"] = api_key_input
+    api_key = st.session_state.get("GROQ_API_KEY", "")
 
-api_key = st.session_state.get("GROQ_API_KEY", _auto_key)
+if _secret_key and st.session_state.get("GROQ_API_KEY") != _secret_key:
+    st.session_state["GROQ_API_KEY"] = _secret_key
 
 # Settings
 st.sidebar.markdown("**Settings**")
@@ -74,7 +88,7 @@ else:
 # Main content
 st.title("ARIA: Autonomous Research Intelligence Assistant")
 st.markdown(
-    "Powered by **LangGraph** · **Groq (Llama 3.3 70B)** · **DuckDuckGo**  \n"
+    "Powered by **LangGraph** · **Groq (Llama 3.3 70B)** · **DuckDuckGo** · **Wikipedia** \n"
     "Enter any research question and ARIA will search the web, synthesize findings across sources, "
     "and produce a structured report with follow-up Q&A and PDF export."
 )
@@ -87,6 +101,26 @@ def render_error_panel(errors: list[str], title: str = "Warnings and errors") ->
     with st.expander(title, expanded=False):
         for err in errors:
             st.write(f"- {err}")
+
+
+def _looks_like_invalid_api_key(error_text: str) -> bool:
+    text = error_text.lower()
+    return "invalid api key" in text or "invalid_api_key" in text or "401" in text
+
+
+def validate_api_key(api_key: str) -> tuple[bool, str | None]:
+    """Run a one-shot Groq request so we fail fast on bad credentials."""
+    try:
+        llm = get_llm(api_key=api_key)
+        response = llm.invoke([HumanMessage(content="Reply with OK.")])
+        if getattr(response, "content", "").strip():
+            return True, None
+        return True, None
+    except Exception as e:
+        error_text = str(e)
+        if _looks_like_invalid_api_key(error_text):
+            return False, "The Groq API key is invalid. Update the key in the sidebar and run again."
+        return False, f"Unable to contact the Groq API before starting research: {error_text}"
 
 if _import_errors:
     st.error(
@@ -143,12 +177,23 @@ with left_col:
 
     if not api_key:
         st.warning("Add your Groq API key in the sidebar to get started. Free at [console.groq.com](https://console.groq.com).")
+    elif _secret_key:
+        st.caption("Using the Groq API key from `.streamlit/secrets.toml`.")
 
     # Agent execution
     if run_btn and query and api_key:
         st.session_state["agent_state"] = None
         st.session_state["report_ready"] = False
         st.session_state["qa_history"] = []
+
+        with st.status("Validating API key...", expanded=False) as auth_status:
+            is_valid, auth_error = validate_api_key(api_key)
+            if not is_valid:
+                auth_status.update(label="API key validation failed", state="error")
+                st.error(auth_error)
+                render_error_panel([auth_error], "API key problem")
+                st.stop()
+            auth_status.update(label="API key validated", state="complete")
 
         initial_state = {
             "query": query,
