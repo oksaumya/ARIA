@@ -1,6 +1,61 @@
 import time
 from typing import List, Tuple
+from urllib.parse import urlparse
 from src.agent.state import SearchResult
+
+# Domains that are considered high-quality academic / institutional sources
+_HIGH_TRUST_DOMAINS = {
+    "wikipedia.org", "arxiv.org", "pubmed.ncbi.nlm.nih.gov", "scholar.google.com",
+    "nature.com", "sciencedirect.com", "springer.com", "ieee.org", "acm.org",
+    "mit.edu", "stanford.edu", "harvard.edu", "ox.ac.uk", "cam.ac.uk",
+    "researchgate.net", "semanticscholar.org", "jstor.org",
+}
+_MEDIUM_TRUST_TLDS = {".edu", ".gov", ".ac.uk", ".ac.in", ".org"}
+
+
+def _score_url(url: str) -> float:
+    """Heuristic source-quality score in [0.0, 1.0] based on URL signals.
+
+    Scoring breakdown:
+    - Base score: 0.4
+    - HTTPS:      +0.05
+    - High-trust domain (academic/gov/org):  +0.30
+    - Medium-trust TLD (.edu/.gov/.org etc): +0.15 (if not already high-trust)
+    - Shallow URL path (≤ 3 segments):      +0.10  (avoids deep paginated junk)
+    """
+    if not url:
+        return 0.4
+
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return 0.4
+
+    score = 0.4
+
+    # HTTPS bonus
+    if parsed.scheme == "https":
+        score += 0.05
+
+    hostname = parsed.hostname or ""
+    # Strip leading 'www.'
+    hostname = hostname.removeprefix("www.")
+
+    # High-trust domain check
+    is_high_trust = any(hostname == d or hostname.endswith("." + d) for d in _HIGH_TRUST_DOMAINS)
+    if is_high_trust:
+        score += 0.30
+    else:
+        # Medium-trust TLD check
+        if any(hostname.endswith(tld) for tld in _MEDIUM_TRUST_TLDS):
+            score += 0.15
+
+    # Shallow path bonus — fewer path segments = cleaner, more authoritative page
+    path_depth = len([s for s in parsed.path.split("/") if s])
+    if path_depth <= 3:
+        score += 0.10
+
+    return round(min(score, 1.0), 2)
 
 
 class DuckDuckGoSearcher:
@@ -39,12 +94,13 @@ class DuckDuckGoSearcher:
                         timelimit=None,
                         **search_kwargs,
                     ):
+                        raw_url = r.get("href", "")
                         results.append(SearchResult(
-                            url=r.get("href", ""),
+                            url=raw_url,
                             title=r.get("title", ""),
                             snippet=r.get("body", "")[:500],
                             full_content=None,
-                            source_quality=0.5,
+                            source_quality=_score_url(raw_url),
                         ))
                 if not results:
                     errors.append(f"DuckDuckGo returned no results for query: {query}")
@@ -109,7 +165,7 @@ class WikipediaSearcher:
                     title=page.title,
                     snippet=summary[:500],
                     full_content=summary,
-                    source_quality=0.8,
+                    source_quality=_score_url(page.url),
                 ))
             except Exception as e:
                 errors.append(f"Wikipedia page fetch failed for '{title}': {e}")
