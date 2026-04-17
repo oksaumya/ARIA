@@ -79,6 +79,15 @@ st.markdown(
     "and produce a structured report with follow-up Q&A and PDF export."
 )
 
+
+def render_error_panel(errors: list[str], title: str = "Warnings and errors") -> None:
+    if not errors:
+        return
+    st.error(f"ARIA completed with {len(errors)} issue(s).")
+    with st.expander(title, expanded=False):
+        for err in errors:
+            st.write(f"- {err}")
+
 if _import_errors:
     st.error(
         f"Missing dependencies. Run:\n```\npip install -r requirements.txt\n```\n\nDetails: {_import_errors[0]}"
@@ -165,7 +174,7 @@ with left_col:
 
         node_labels = {
             "plan_research":      "Planning research strategy...",
-            "web_searcher":       "Searching the web with DuckDuckGo...",
+            "web_searcher":       "Searching the web with DuckDuckGo and Wikipedia...",
             "content_fetcher":    "Fetching full source content...",
             "source_summarizer":  "Summarizing each source with Llama 3.3...",
             "aggregator":         "Aggregating findings into synthesis...",
@@ -203,6 +212,7 @@ with left_col:
             except Exception as e:
                 status_box.update(label=f"Error: {str(e)}", state="error")
                 st.error(f"ARIA encountered an error: {str(e)}")
+                render_error_panel(accumulated_state.get("errors", []) + [str(e)])
                 st.stop()
 
         st.session_state["agent_state"] = accumulated_state
@@ -227,10 +237,7 @@ with left_col:
         meta_cols[1].metric("Sources Found", len(state.get("search_results", [])))
         meta_cols[2].metric("Research Iterations", retries + 1)
 
-        if errors:
-            with st.expander("Warnings during research"):
-                for err in errors:
-                    st.caption(f"• {err}")
+        render_error_panel(errors, "Warnings during research")
 
         if show_sources:
             with st.expander("Source Details"):
@@ -277,7 +284,10 @@ with right_col:
             with st.chat_message("assistant"):
                 with st.spinner("ARIA is thinking..."):
                     answer, updated_state = answer_question(state, follow_up, api_key=api_key)
-                st.write(answer)
+                if answer.startswith("I encountered an error while processing your question:"):
+                    st.error(answer)
+                else:
+                    st.write(answer)
 
             st.session_state["agent_state"] = updated_state
             st.session_state["qa_history"] = updated_state.get("qa_history", [])

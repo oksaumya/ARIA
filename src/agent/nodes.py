@@ -1,11 +1,11 @@
 import json
 import time
 import urllib3
-from typing import Any
+from typing import Any, List
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from src.agent.state import ResearchState, SearchResult
-from src.agent.web_search import DuckDuckGoSearcher
+from src.agent.web_search import DuckDuckGoSearcher, WikipediaSearcher
 
 # Disable SSL warnings for web fetching
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -17,6 +17,15 @@ ENGLISH_ONLY = (
     "Do not use markdown fences unless explicitly requested. "
     "Finish every sentence completely; never leave a sentence unfinished."
 )
+
+
+def _error_message(stage: str, error: Exception | str) -> str:
+    return f"{stage}: {error}"
+
+
+def _with_errors(payload: dict, errors: List[str]) -> dict:
+    payload["errors"] = errors
+    return payload
 
 
 def _extract_json_object(text: str) -> dict:
@@ -71,41 +80,53 @@ def plan_research(state: ResearchState) -> dict:
             queries = [query]
     except Exception as e:
         queries = [query]
+        return {
+            "search_queries": queries,
+            "status": "Planning completed with a fallback query.",
+            "errors": [_error_message("Planning failed", e)],
+        }
 
-    return {
+    return _with_errors({
         "search_queries": queries,
         "status": "Planning complete — generated search queries.",
-        "errors": [],
-    }
+    }, [])
 
 
 def web_searcher(state: ResearchState) -> dict:
-    """Search DuckDuckGo for all sub-queries."""
+    """Search DuckDuckGo and Wikipedia for all sub-queries."""
     queries = state.get("search_queries", [state["query"]])
     missing = state.get("missing_aspects", [])
     if missing:
         queries = queries + missing
 
-    searcher = DuckDuckGoSearcher(max_results_per_query=5, sleep_between=1.0)
+    ddgs_searcher = DuckDuckGoSearcher(max_results_per_query=5, sleep_between=1.0)
+    wiki_searcher = WikipediaSearcher(max_results_per_query=3, sleep_between=0.5)
     existing_urls = {r["url"] for r in state.get("search_results", [])}
 
     new_results = []
+    errors: List[str] = []
     for q in queries:
-        results = searcher.search(q)
+        ddgs_results, ddgs_errors = ddgs_searcher.search(q)
+        wiki_results, wiki_errors = wiki_searcher.search(q)
+        errors.extend(ddgs_errors)
+        errors.extend(wiki_errors)
+        results = ddgs_results + wiki_results
         for r in results:
             if r["url"] not in existing_urls:
                 existing_urls.add(r["url"])
                 new_results.append(r)
         time.sleep(1.0)
 
+    if not new_results:
+        errors.append("Web search completed without finding any usable sources.")
+
     all_results = state.get("search_results", []) + new_results
     all_results = all_results[:15]
 
-    return {
+    return _with_errors({
         "search_results": all_results,
         "status": f"Web search complete — found {len(all_results)} sources.",
-        "errors": [],
-    }
+    }, errors)
 
 
 def content_fetcher(state: ResearchState) -> dict:
@@ -115,6 +136,7 @@ def content_fetcher(state: ResearchState) -> dict:
     results = state.get("search_results", [])
     failed_urls = list(state.get("failed_urls", []))
     updated = []
+    errors: List[str] = []
 
     for r in results:
         if r.get("full_content") is not None:
@@ -142,17 +164,21 @@ def content_fetcher(state: ResearchState) -> dict:
                 updated.append({**r, "full_content": text})
             else:
                 failed_urls.append(url)
+                errors.append(f"Failed to fetch {url}: HTTP {resp.status}")
                 updated.append({**r, "full_content": r["snippet"]})
-        except Exception:
+        except Exception as e:
             failed_urls.append(url)
+            errors.append(_error_message(f"Failed to fetch {url}", e))
             updated.append({**r, "full_content": r["snippet"]})
 
-    return {
+    if failed_urls and not errors:
+        errors.append(f"Content fetch finished with {len(failed_urls)} failed URL(s).")
+
+    return _with_errors({
         "search_results": updated,
         "failed_urls": failed_urls,
         "status": f"Content fetched — {len(failed_urls)} URLs failed.",
-        "errors": [],
-    }
+    }, errors)
 
 
 def source_summarizer(state: ResearchState) -> dict:
@@ -162,6 +188,7 @@ def source_summarizer(state: ResearchState) -> dict:
     llm = _get_llm(state)
 
     summaries = []
+    errors: List[str] = []
     system = (
         "You are a research assistant. Summarize the following source content in 3–5 meaningfull sentences in English, "
         "focusing specifically on how it relates to the research query. "
@@ -184,13 +211,16 @@ def source_summarizer(state: ResearchState) -> dict:
             time.sleep(1.0)
         except Exception as e:
             summaries.append(f"[{r['title']}]: {r['snippet']}")
+            errors.append(_error_message(f"Summarization failed for {r['title']}", e))
             time.sleep(1.0)
 
-    return {
+    if not summaries:
+        errors.append("No source summaries were generated.")
+
+    return _with_errors({
         "source_summaries": summaries,
         "status": f"Summarized {len(summaries)} relevant sources.",
-        "errors": [],
-    }
+    }, errors)
 
 
 def aggregator(state: ResearchState) -> dict:
@@ -203,7 +233,7 @@ def aggregator(state: ResearchState) -> dict:
         return {
             "aggregated_text": "No relevant sources found.",
             "status": "Aggregation complete.",
-            "errors": ["No source summaries to aggregate."],
+            "errors": ["Aggregation skipped because there were no source summaries to combine."],
         }
 
     combined = "\n\n".join(summaries)
@@ -223,12 +253,16 @@ def aggregator(state: ResearchState) -> dict:
         aggregated = resp.content.strip()
     except Exception as e:
         aggregated = combined
+        return {
+            "aggregated_text": aggregated,
+            "status": "Aggregation completed with a fallback synthesis.",
+            "errors": [_error_message("Aggregation failed", e)],
+        }
 
-    return {
+    return _with_errors({
         "aggregated_text": aggregated,
         "status": "Aggregation complete.",
-        "errors": [],
-    }
+    }, [])
 
 
 def quality_validator(state: ResearchState) -> dict:
@@ -261,14 +295,20 @@ def quality_validator(state: ResearchState) -> dict:
         score = 0.7
         feedback = "Quality check could not be completed."
         missing = []
+        return {
+            "quality_score": min(max(score, 0.0), 1.0),
+            "quality_feedback": feedback,
+            "missing_aspects": missing,
+            "status": f"Quality score: {score:.2f}. {feedback}",
+            "errors": [_error_message("Quality validation failed", e)],
+        }
 
-    return {
+    return _with_errors({
         "quality_score": min(max(score, 0.0), 1.0),
         "quality_feedback": feedback,
         "missing_aspects": missing,
         "status": f"Quality score: {score:.2f}. {feedback}",
-        "errors": [],
-    }
+    }, [])
 
 
 def report_generator(state: ResearchState) -> dict:
@@ -325,15 +365,21 @@ def report_generator(state: ResearchState) -> dict:
             "conclusion": "Report generation encountered an error. The synthesis above represents the research findings.",
             "sources": sources_list,
         }
+        markdown = _render_report_markdown(report)
+        return {
+            "report": report,
+            "report_markdown": markdown,
+            "status": "Research report generated with a fallback template.",
+            "errors": [_error_message("Report generation failed", e)],
+        }
 
     markdown = _render_report_markdown(report)
 
-    return {
+    return _with_errors({
         "report": report,
         "report_markdown": markdown,
         "status": "Research report generated successfully.",
-        "errors": [],
-    }
+    }, [])
 
 
 def _render_report_markdown(report: dict) -> str:
