@@ -37,3 +37,4 @@ class ResearchState(TypedDict):
     research_timestamp: str
     errors: Annotated[List[str], operator.add]
     status: str
+    api_key: str

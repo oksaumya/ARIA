@@ -26,36 +26,17 @@ st.sidebar.title("ARIA Agent")
 st.sidebar.caption("Autonomous Research Intelligence Assistant")
 st.sidebar.markdown("---")
 
-# API Key input — auto-load from secrets if available
-_secret_key = ""
-try:
-    _secret_key = st.secrets.get("GROQ_API_KEY", "")
-except Exception:
-    pass
-
-if _secret_key:
-    st.sidebar.text_input(
-        "Groq API Key",
-        value=_secret_key,
-        type="password",
-        disabled=True,
-        help="Loaded from `.streamlit/secrets.toml`.",
-    )
-    api_key = _secret_key
-else:
-    api_key_input = st.sidebar.text_input(
-        "Groq API Key",
-        value=st.session_state.get("GROQ_API_KEY", ""),
-        type="password",
-        placeholder="gsk_...",
-        help="Free key at console.groq.com",
-    )
-    if api_key_input:
-        st.session_state["GROQ_API_KEY"] = api_key_input
-    api_key = st.session_state.get("GROQ_API_KEY", "")
-
-if _secret_key and st.session_state.get("GROQ_API_KEY") != _secret_key:
-    st.session_state["GROQ_API_KEY"] = _secret_key
+# API Key input — only from user
+api_key_input = st.sidebar.text_input(
+    "Groq API Key",
+    value=st.session_state.get("GROQ_API_KEY", ""),
+    type="password",
+    placeholder="gsk_...",
+    help="Free key at console.groq.com",
+)
+if api_key_input:
+    st.session_state["GROQ_API_KEY"] = api_key_input
+api_key = st.session_state.get("GROQ_API_KEY", "")
 
 # Settings
 st.sidebar.markdown("**Settings**")
@@ -177,8 +158,6 @@ with left_col:
 
     if not api_key:
         st.warning("Add your Groq API key in the sidebar to get started. Free at [console.groq.com](https://console.groq.com).")
-    elif _secret_key:
-        st.caption("Using the Groq API key from `.streamlit/secrets.toml`.")
 
     # Agent execution
     if run_btn and query and api_key:
