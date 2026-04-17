@@ -5,7 +5,7 @@ from src.nlp_pipeline import clean_text, extract_keywords_tfidf, perform_topic_m
 
 st.set_page_config(page_title="NLP Research Analysis System", layout="wide")
 
-st.title("NLP Research Analysis System (Milestone 1)")
+st.title("NLP Research Analysis System)")
 st.markdown("Analyze documents or search topics to extract themes, keywords, and structured summaries using traditional NLP.")
 
 st.sidebar.header("Input Section")

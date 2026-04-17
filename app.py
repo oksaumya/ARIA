@@ -14,7 +14,7 @@ st.markdown("---")
 col1, col2 = st.columns(2, gap="large")
 
 with col1:
-    st.markdown("#### Milestone 1: NLP Analysis")
+    st.markdown("#### 1: NLP Analysis")
     st.markdown(
         """
         Traditional ML/NLP pipeline for document analysis:
@@ -27,7 +27,7 @@ with col1:
     st.page_link("pages/1_NLP_Analysis.py", label="Open NLP Analysis", icon="📄")
 
 with col2:
-    st.markdown("#### Milestone 2: ARIA Agent")
+    st.markdown("#### 2: ARIA Agent")
     st.markdown(
         """
         Agentic AI research pipeline powered by LangGraph + Groq:

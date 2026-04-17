@@ -8,7 +8,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# ── Imports with user-friendly error messages ──────────────────────────────────
+
 _import_errors = []
 try:
     from src.agent.graph import research_graph
@@ -19,7 +19,7 @@ except ImportError as e:
     _import_errors.append(str(e))
 
 
-# ── Sidebar ────────────────────────────────────────────────────────────────────
+#Sidebar
 st.sidebar.title("ARIA Agent")
 st.sidebar.caption("Autonomous Research Intelligence Assistant")
 st.sidebar.markdown("---")
@@ -71,12 +71,12 @@ else:
     st.sidebar.caption("No research history yet.")
 
 
-# ── Main content ───────────────────────────────────────────────────────────────
-st.title("ARIA — Autonomous Research Intelligence Assistant")
+# Main content
+st.title("ARIA: Autonomous Research Intelligence Assistant")
 st.markdown(
     "Powered by **LangGraph** · **Groq (Llama 3.3 70B)** · **DuckDuckGo**  \n"
     "Enter any research question and ARIA will search the web, synthesize findings across sources, "
-    "and produce a structured report — with follow-up Q&A and PDF export."
+    "and produce a structured report with follow-up Q&A and PDF export."
 )
 
 if _import_errors:
@@ -85,7 +85,7 @@ if _import_errors:
     )
     st.stop()
 
-# ── Loaded session from history ────────────────────────────────────────────────
+# Loaded session from history 
 if "loaded_report" in st.session_state:
     st.info(f"Loaded report: **{st.session_state.get('current_query', '')}**")
     st.markdown(st.session_state["loaded_report"])
@@ -116,7 +116,7 @@ if "loaded_report" in st.session_state:
     st.stop()
 
 
-# ── Two-column layout ──────────────────────────────────────────────────────────
+# Two-column layout 
 left_col, right_col = st.columns([6, 4])
 
 with left_col:
@@ -135,7 +135,7 @@ with left_col:
     if not api_key:
         st.warning("Add your Groq API key in the sidebar to get started. Free at [console.groq.com](https://console.groq.com).")
 
-    # ── Agent execution ────────────────────────────────────────────────────────
+    # Agent execution
     if run_btn and query and api_key:
         st.session_state["agent_state"] = None
         st.session_state["report_ready"] = False
@@ -210,7 +210,7 @@ with left_col:
         st.session_state["qa_history"] = accumulated_state.get("qa_history", [])
         save_session(query, accumulated_state)
 
-    # ── Report display ─────────────────────────────────────────────────────────
+    # Report display
     if st.session_state.get("report_ready"):
         state = st.session_state["agent_state"]
         report_md = state.get("report_markdown", "")
@@ -252,7 +252,7 @@ with left_col:
             st.caption(f"PDF export unavailable: {e}")
 
 
-# ── Right column: Q&A chat ─────────────────────────────────────────────────────
+# Right column: Q&A chat
 with right_col:
     st.subheader("Ask ARIA")
 
