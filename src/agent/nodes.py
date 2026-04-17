@@ -61,7 +61,7 @@ def plan_research(state: ResearchState) -> dict:
     llm = _get_llm(state)
 
     system = (
-        "You are a research planning assistant. Given a research topic, generate 3 to 5 meaningfull "
+        "You are a research planning assistant. Given a research topic, generate 3 to 5 meaningful "
         "distinct search queries that cover different facets: overview, recent developments, "
         "applications, criticisms or limitations, and future directions. "
         f"{ENGLISH_ONLY} "
@@ -190,7 +190,7 @@ def source_summarizer(state: ResearchState) -> dict:
     summaries = []
     errors: List[str] = []
     system = (
-        "You are a research assistant. Summarize the following source content in 3–5 meaningfull sentences in English, "
+        "You are a research assistant. Summarize the following source content in 3–5 meaningful sentences in English, "
         "focusing specifically on how it relates to the research query. "
         f"{ENGLISH_ONLY} "
         "If the content is irrelevant to the query, respond with exactly: IRRELEVANT"
@@ -241,7 +241,7 @@ def aggregator(state: ResearchState) -> dict:
         "You are a research synthesis expert. Given the following per-source summaries, "
         "write a unified synthesis that: identifies consensus findings, notes contradictions, "
         "highlights knowledge gaps, and directly addresses the research query. "
-        "Write 3-5 meaningfull well-developed paragraphs. Be specific and evidence-based. "
+        "Write 3-5 meaningful well-developed paragraphs. Be specific and evidence-based. "
         f"{ENGLISH_ONLY}"
     )
 
@@ -327,7 +327,7 @@ def report_generator(state: ResearchState) -> dict:
         "You are an expert research report writer. Generate a comprehensive, structured research report "
         "based on the provided synthesis. Return ONLY a JSON object with these exact keys:\n"
         '- "title": string (descriptive report title)\n'
-        '- "abstract": string (2–3 meaningfull sentence overview)\n'
+        '- "abstract": string (2–3 meaningful sentence overview)\n'
         '- "key_findings": list of strings (5–8 specific, evidence-based bullet points)\n'
         '- "conclusion": string (1 well-developed paragraph)\n'
         '- "sources": list of {"title": string, "url": string} objects\n\n'
