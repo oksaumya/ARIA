@@ -1,4 +1,4 @@
-# ARIA — Autonomous Research Intelligence Assistant
+# ARIA - Autonomous Research Intelligence Assistant
 
 > An intelligent two-phase research system: from classical NLP to a fully autonomous AI research agent.
 
@@ -20,7 +20,7 @@ ARIA is built as a two-milestone project that demonstrates the progression from 
 ### 1. Clone & Setup (one command)
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/oksaumya/ARIA.git
 cd ARIA
 bash setup.sh
 ```
@@ -96,7 +96,7 @@ ARIA/
 
 ---
 
-## Milestone 1 — NLP Analysis System
+## Milestone 1 - NLP Analysis System
 
 **Objective:** Analyze research documents using classical NLP without any LLMs.
 
@@ -111,7 +111,7 @@ ARIA/
 
 ---
 
-## Milestone 2 — ARIA Agent
+## Milestone 2 - ARIA Agent
 
 **Objective:** Autonomously research any topic by searching the web, synthesizing multiple sources, and generating a structured report.
 
@@ -130,15 +130,15 @@ plan_research → web_searcher → content_fetcher → source_summarizer
 ```
 
 **Features:**
-- **Query planning** — Grok decomposes query into 3–5 targeted sub-questions
-- **Web search** — DuckDuckGo (free, no API key needed for search)
-- **Content fetching** — Fetches and parses full page text via BeautifulSoup
-- **Per-source AI summaries** — Groq summarizes each source in context
-- **Iterative quality control** — Re-searches if coverage score < 60%
-- **Structured report** — Title · Abstract · Key Findings · Conclusion · Sources
-- **Follow-up Q&A** — Chat interface grounded in the report (no hallucination beyond sources)
-- **PDF export** — Full report + Q&A history
-- **Session history** — Last 10 research sessions in sidebar
+- **Query planning** :- Grok decomposes query into 3–5 targeted sub-questions
+- **Web search** :- DuckDuckGo (free, no API key needed for search)
+- **Content fetching** :- Fetches and parses full page text via BeautifulSoup
+- **Per-source AI summaries** :- Groq summarizes each source in context
+- **Iterative quality control** :- Re-searches if coverage score < 60%
+- **Structured report** :- Title · Abstract · Key Findings · Conclusion · Sources
+- **Follow-up Q&A** :- Chat interface grounded in the report (no hallucination beyond sources)
+- **PDF export** :- Full report + Q&A history
+- **Session history** :- Last 10 research sessions in sidebar
 
 **Tech:** LangGraph · LangChain · Groq (Llama 3.3 70B) · DuckDuckGo Search · fpdf2
 
