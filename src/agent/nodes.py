@@ -1,7 +1,7 @@
 import json
 import time
 import urllib3
-from typing import Any, List
+from typing import Any, List, Union
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from src.agent.state import ResearchState, SearchResult
@@ -19,7 +19,7 @@ ENGLISH_ONLY = (
 )
 
 
-def _error_message(stage: str, error: Exception | str) -> str:
+def _error_message(stage: str, error: Union[Exception, str]) -> str:
     return f"{stage}: {error}"
 
 

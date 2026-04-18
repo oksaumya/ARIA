@@ -27,7 +27,10 @@ st.sidebar.caption("Autonomous Research Intelligence Assistant")
 st.sidebar.markdown("---")
 
 # Resolve API key: user input > secrets.toml > empty
-_secrets_key: str = st.secrets.get("GROQ_API_KEY", "") or ""
+try:
+    _secrets_key: str = st.secrets.get("GROQ_API_KEY", "") or ""
+except Exception:
+    _secrets_key = ""
 
 api_key_input = st.sidebar.text_input(
     "Groq API Key",
@@ -84,7 +87,7 @@ st.markdown(
 )
 
 
-def render_error_panel(errors: list[str], title: str = "Warnings and errors") -> None:
+def render_error_panel(errors: "list[str]", title: str = "Warnings and errors") -> None:
     if not errors:
         return
     st.error(f"ARIA completed with {len(errors)} issue(s).")
@@ -98,7 +101,7 @@ def _looks_like_invalid_api_key(error_text: str) -> bool:
     return "invalid api key" in text or "invalid_api_key" in text or "401" in text
 
 
-def validate_api_key(api_key: str) -> tuple[bool, str | None]:
+def validate_api_key(api_key: str) -> "tuple[bool, str | None]":
     """Run a one-shot Groq request so we fail fast on bad credentials."""
     try:
         llm = get_llm(api_key=api_key)

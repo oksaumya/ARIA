@@ -2,7 +2,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from src.agent.state import ResearchState
 
 
-def answer_question(state: ResearchState, question: str, api_key: str = None) -> tuple[str, ResearchState]:
+def answer_question(state: ResearchState, question: str, api_key: str = None) -> "tuple[str, ResearchState]":
     """Answer a follow-up question grounded in the research report."""
     from src.agent.llm import get_llm
 

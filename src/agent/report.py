@@ -36,46 +36,119 @@ def export_pdf(report_markdown: str, qa_history: List[dict] = None) -> bytes:
 
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
+
+    # Use consistent margins
+    LEFT_MARGIN = 15
+    RIGHT_MARGIN = 15
+    pdf.set_left_margin(LEFT_MARGIN)
+    pdf.set_right_margin(RIGHT_MARGIN)
+
     pdf.add_page()
 
-    # Effective width using default 10mm margins on each side
-    W = pdf.w - 2 * pdf.l_margin
+    # Effective content width
+    W = pdf.w - LEFT_MARGIN - RIGHT_MARGIN
 
     def _safe(text: str) -> str:
-        # Strip markdown links [text](url) → text, then encode to latin-1
+        """Strip all markdown formatting and encode to latin-1."""
+        # Strip markdown links [text](url) → text
         text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
+        # Strip bold **text** or __text__
+        text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+        text = re.sub(r'__(.+?)__', r'\1', text)
+        # Strip italic *text* or _text_
+        text = re.sub(r'\*(.+?)\*', r'\1', text)
+        text = re.sub(r'(?<!\w)_(.+?)_(?!\w)', r'\1', text)
+        # Strip inline code `text`
+        text = re.sub(r'`(.+?)`', r'\1', text)
+        # Encode to latin-1 for PDF compatibility
         return text.encode("latin-1", errors="replace").decode("latin-1")
 
+    def _reset_x():
+        """Reset cursor to left margin to prevent drift."""
+        pdf.set_x(LEFT_MARGIN)
+
+    def _write_cell(width, height, text, align="L"):
+        """Write a multi_cell with explicit x-position reset."""
+        _reset_x()
+        pdf.multi_cell(width, height, text, align=align)
+        _reset_x()
+
+    # --- Title / H1 ---
+    first_h1 = True
+
     for line in report_markdown.split("\n"):
-        if line.startswith("# "):
-            pdf.set_font("Helvetica", "B", 18)
-            pdf.multi_cell(W, 10, _safe(line[2:]))
-            pdf.ln(4)
-        elif line.startswith("## "):
-            pdf.set_font("Helvetica", "B", 13)
+        stripped = line.strip()
+
+        if stripped.startswith("# "):
+            # H1 — main title
+            _reset_x()
+            pdf.set_font("Helvetica", "B", 20)
+            if first_h1:
+                pdf.ln(5)
+                first_h1 = False
+            _write_cell(W, 10, _safe(stripped[2:]), align="L")
+            # Draw a separator line under the title
+            y = pdf.get_y() + 2
+            pdf.line(LEFT_MARGIN, y, pdf.w - RIGHT_MARGIN, y)
+            pdf.ln(6)
+
+        elif stripped.startswith("### "):
+            # H3 — sub-sub-heading
+            _reset_x()
+            pdf.set_font("Helvetica", "B", 11)
             pdf.ln(3)
-            pdf.multi_cell(W, 8, _safe(line[3:]))
-            pdf.ln(2)
-        elif line.startswith("- "):
-            pdf.set_font("Helvetica", "", 11)
-            pdf.multi_cell(W, 6, _safe(f"- {line[2:]}"))
-        elif line.strip():
-            pdf.set_font("Helvetica", "", 11)
-            pdf.multi_cell(W, 6, _safe(line))
-        else:
+            _write_cell(W, 7, _safe(stripped[4:]))
+            pdf.ln(1)
+
+        elif stripped.startswith("## "):
+            # H2 — section heading
+            _reset_x()
+            pdf.set_font("Helvetica", "B", 14)
+            pdf.ln(5)
+            _write_cell(W, 9, _safe(stripped[3:]))
             pdf.ln(3)
 
+        elif stripped.startswith("- "):
+            # Bullet point — use indent for proper alignment
+            _reset_x()
+            pdf.set_font("Helvetica", "", 11)
+            bullet_indent = 5
+            bullet_text = _safe(stripped[2:])
+            pdf.set_x(LEFT_MARGIN + bullet_indent)
+            bullet_w = W - bullet_indent
+            # Use a bullet character instead of dash for cleaner look
+            pdf.multi_cell(bullet_w, 6, f"\x95  {bullet_text}")
+            _reset_x()
+
+        elif stripped:
+            # Body text
+            _reset_x()
+            pdf.set_font("Helvetica", "", 11)
+            _write_cell(W, 6, _safe(stripped))
+
+        else:
+            # Empty line — small vertical space
+            pdf.ln(3)
+
+    # --- Q&A Section ---
     if qa_history:
         pdf.add_page()
-        pdf.set_font("Helvetica", "B", 14)
-        pdf.multi_cell(W, 10, "Follow-up Q&A")
-        pdf.ln(4)
+        _reset_x()
+        pdf.set_font("Helvetica", "B", 16)
+        _write_cell(W, 10, "Follow-up Q&A")
+        y = pdf.get_y() + 2
+        pdf.line(LEFT_MARGIN, y, pdf.w - RIGHT_MARGIN, y)
+        pdf.ln(6)
 
         for i, qa in enumerate(qa_history, 1):
+            _reset_x()
             pdf.set_font("Helvetica", "B", 11)
-            pdf.multi_cell(W, 7, _safe(f"Q{i}: {qa['question']}"))
+            _write_cell(W, 7, _safe(f"Q{i}: {qa['question']}"))
+            pdf.ln(1)
+
+            _reset_x()
             pdf.set_font("Helvetica", "", 11)
-            pdf.multi_cell(W, 6, _safe(f"A: {qa['answer']}"))
-            pdf.ln(4)
+            _write_cell(W, 6, _safe(f"A: {qa['answer']}"))
+            pdf.ln(5)
 
     return bytes(pdf.output())
