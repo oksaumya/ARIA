@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # ARIA — Autonomous Research Intelligence Assistant
-# One-shot environment setup script
+
 set -e
 
 echo "==> Setting up ARIA project environment"
 echo "==> Using Python: $(python3 --version)"
 
-# ── Create isolated virtual environment ────────────────────────────────────────
+#virtual environment
 if [ -d ".venv" ]; then
     echo "==> .venv already exists — skipping creation"
 else
@@ -17,12 +17,12 @@ fi
 source .venv/bin/activate
 echo "==> Virtual environment active: $(python --version)"
 
-# ── Install dependencies ───────────────────────────────────────────────────────
+# Install dependencies
 pip install --upgrade pip --quiet
 echo "==> Installing dependencies"
 pip install -r requirements.txt
 
-# ── Download language models ───────────────────────────────────────────────────
+# Download language models
 echo "==> Downloading spaCy English model"
 python -m spacy download en_core_web_sm
 
